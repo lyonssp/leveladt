@@ -10,14 +10,17 @@ type Set struct {
 	ldb *leveldb.DB
 }
 
+// Add includes the value x to the set
 func (s *Set) Add(x []byte) error {
 	return s.ldb.Put(s.key(x), []byte{}, nil)
 }
 
+// Remove deletes the value x from the set
 func (s *Set) Remove(x []byte) error {
 	return s.ldb.Delete(s.key(x), nil)
 }
 
+// Contains returns true if x is in the set, and false otherwise
 func (s *Set) Contains(x []byte) (bool, error) {
 	_, err := s.ldb.Get(s.key(x), nil)
 	if err != nil {
