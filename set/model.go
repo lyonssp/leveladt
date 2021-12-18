@@ -27,7 +27,7 @@ func (mod setModel) Contains(x []byte) (bool, error) {
 
 func (mod setModel) clone() setModel {
 	cp := makeSetModel()
-	for x, _ := range mod.m {
+	for x := range mod.m {
 		cp.Add([]byte(x))
 	}
 	return cp

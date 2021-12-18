@@ -2,6 +2,7 @@ package set
 
 import (
 	"fmt"
+
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
