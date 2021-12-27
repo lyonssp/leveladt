@@ -11,17 +11,17 @@ func makeSetModel() setModel {
 }
 
 func (mod *setModel) Add(x []byte) error {
-	mod.m[stringify(x)] = struct{}{}
+	mod.m[string(x)] = struct{}{}
 	return nil
 }
 
 func (mod *setModel) Remove(x []byte) error {
-	delete(mod.m, stringify(x))
+	delete(mod.m, string(x))
 	return nil
 }
 
 func (mod setModel) Contains(x []byte) (bool, error) {
-	_, contains := mod.m[stringify(x)]
+	_, contains := mod.m[string(x)]
 	return contains, nil
 }
 
