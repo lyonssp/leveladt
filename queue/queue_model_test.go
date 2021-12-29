@@ -24,10 +24,7 @@ func TestQueueModel(t *testing.T) {
 			db, err := leveldb.OpenFile(dir, nil)
 			assert.Nil(err)
 
-			return &Queue{
-				ns:  []byte("test"),
-				ldb: db,
-			}
+			return NewQueue([]byte("test"), db)
 		},
 		InitialStateGen: gen.Const(makeQueueModel()),
 		InitialPreConditionFunc: func(_ commands.State) bool {

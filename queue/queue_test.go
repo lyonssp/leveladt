@@ -29,7 +29,7 @@ func TestQueueProperties(t *testing.T) {
 				return false
 			}
 
-			q := Queue{ns: []byte("test"), ldb: db}
+			q := NewQueue([]byte("test"), db)
 
 			for _, s := range ss {
 				if err := q.Push([]byte(s)); err != nil {
@@ -63,7 +63,7 @@ func TestQueue(t *testing.T) {
 		db, err := leveldb.OpenFile(dir, nil)
 		assert.Nil(err)
 
-		q := Queue{ns: []byte("test"), ldb: db}
+		q := NewQueue([]byte("test"), db)
 
 		err = q.Push([]byte("foo"))
 		assert.Nil(err)
@@ -83,7 +83,7 @@ func TestQueue(t *testing.T) {
 		db, err := leveldb.OpenFile(dir, nil)
 		assert.Nil(err)
 
-		q := Queue{ns: []byte("test"), ldb: db}
+		q := NewQueue([]byte("test"), db)
 
 		err = q.Push([]byte("foo"))
 		assert.Nil(err)
@@ -110,8 +110,8 @@ func TestNamespacing(t *testing.T) {
 	db, err := leveldb.OpenFile(dir, nil)
 	assert.Nil(err)
 
-	a := Queue{ns: []byte("xxx"), ldb: db}
-	b := Queue{ns: []byte("yyy"), ldb: db}
+	a := NewQueue([]byte("xxx"), db)
+	b := NewQueue([]byte("yyy"), db)
 
 	err = a.Push([]byte("foo"))
 	assert.Nil(err)
@@ -139,7 +139,7 @@ func TestRegressions(t *testing.T) {
 		db, err := leveldb.OpenFile(dir, nil)
 		assert.Nil(err)
 
-		a := Queue{ns: []byte("xxx"), ldb: db}
+		a := NewQueue([]byte("xxx"), db)
 
 		a.Push([]byte("cz9qanCc"))
 		a.Push([]byte("wiekc00p"))

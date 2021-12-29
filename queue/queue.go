@@ -24,6 +24,13 @@ type Queue struct {
 	l   sync.Mutex
 }
 
+func NewQueue(ns []byte, ldb *leveldb.DB) *Queue {
+	return &Queue{
+		ns:  ns,
+		ldb: ldb,
+	}
+}
+
 // Push the value x to the back of the queue
 func (ls *Queue) Push(v []byte) error {
 	ls.l.Lock()
@@ -102,7 +109,7 @@ func (ls *Queue) Pop() ([]byte, error) {
 /*
   convenience accessors that respect the queue namespace
 */
-func (ls Queue) get(key []byte) ([]byte, error) {
+func (ls *Queue) get(key []byte) ([]byte, error) {
 	front, err := ls.ldb.Get(key, nil)
 
 	if err == leveldb.ErrNotFound {
@@ -117,26 +124,26 @@ func (ls Queue) get(key []byte) ([]byte, error) {
 }
 
 // pFront encodes the pFront constant, respecting the namespace of the queue
-func (ls Queue) pFront() []byte {
+func (ls *Queue) pFront() []byte {
 	var b bytes.Buffer
 	fmt.Fprint(&b, string(ls.ns), pFront)
 	return b.Bytes()
 }
 
 // pBack encodes the pBack constant, respecting the namespace of the queue
-func (ls Queue) pBack() []byte {
+func (ls *Queue) pBack() []byte {
 	var b bytes.Buffer
 	fmt.Fprint(&b, string(ls.ns), pBack)
 	return b.Bytes()
 }
 
 // peek returns the encoded queueValue at the front of the queue
-func (ls Queue) peek() ([]byte, error) {
+func (ls *Queue) peek() ([]byte, error) {
 	return ls.get(ls.pFront())
 }
 
 // peekBack returns the encoded queueValue at the back of the queue
-func (ls Queue) peekBack() ([]byte, error) {
+func (ls *Queue) peekBack() ([]byte, error) {
 	return ls.get(ls.pBack())
 }
 
