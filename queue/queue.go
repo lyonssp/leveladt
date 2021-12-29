@@ -11,49 +11,45 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-// _root is a special key that always points to the front of the queue
-const _root = "root"
+// special key that always points to the pFront of the queue
+const (
+	pFront = "front"
+	pBack  = "back"
+)
 
 // Queue is a FIFO queue backed by LevelDB
 type Queue struct {
-	ns []byte
-
-	// prev is a key that always maps to the next pushed item
-	//
-	// this key should be referenced when queueing a new item
-	// `next` such that a LevelDB mapping is created like so:
-	//
-	//	_prev -> next
-	//
-	// TODO: would prefer not to do this, needs to be initialized for any new queue
-	_prev []byte
-
+	ns  []byte
 	ldb *leveldb.DB
-
-	l sync.Mutex
+	l   sync.Mutex
 }
 
 // Push the value x to the back of the queue
 func (ls *Queue) Push(v []byte) error {
+	ls.l.Lock()
+	defer ls.l.Unlock()
 
-	// encode value with namespace and deduplicating nonce
+	// encode input with namespace and deduplicating nonce
 	encoded, err := encode(queueValue{ns: string(ls.ns), val: string(v), nonce: uuid.NewString()})
 	if err != nil {
 		return err
 	}
 
-	// write encoded value and update prev pointer
-	prev, err := ls.prev()
+	// get encoded queueValue at back of queue
+	encBack, err := ls.peekBack()
 	if err != nil {
 		return err
 	}
-	err = ls.ldb.Put(prev, encoded, nil)
-	if err != nil {
-		return err
-	}
-	ls._prev = encoded
 
-	return nil
+	batch := new(leveldb.Batch)
+
+	// if the back pointer points to nothing, this is the first write to the queue and the front pointer must be updated
+	if encBack == nil {
+		batch.Put(ls.pFront(), encoded)
+	}
+	batch.Put(encBack, encoded)
+	batch.Put(ls.pBack(), encoded)
+	return ls.ldb.Write(batch, nil)
 }
 
 // Pop and return the item at the front of the queue
@@ -61,17 +57,17 @@ func (ls *Queue) Pop() ([]byte, error) {
 	ls.l.Lock()
 	defer ls.l.Unlock()
 
-	// get item at front of the queue that will be removed
-	frontEncoded, err := ls.peek()
+	// get encoded queueValue at front of the queue that will be removed
+	encFront, err := ls.peek()
 	if err != nil {
 		return nil, err
 	}
-	if frontEncoded == nil {
+	if encFront == nil {
 		return nil, errors.New("cannot pop from empty queue")
 	}
 
 	// get the item that will be the new front of the queue
-	next, err := ls.get(frontEncoded)
+	newEncFront, err := ls.get(encFront)
 	if err != nil {
 		return nil, err
 	}
@@ -80,33 +76,22 @@ func (ls *Queue) Pop() ([]byte, error) {
 	batch := new(leveldb.Batch)
 
 	// include delete for the item at the front of the queue
-	batch.Delete(frontEncoded)
+	batch.Delete(encFront)
 
-	// if there was a second item in the queue, update the root pointer
-	if next != nil {
-		r, err := ls.root()
-		if err != nil {
-			return nil, err
-		}
-		batch.Put(r, next)
+	// if there was a second item in the queue, update the front pointer
+	// otherwise, we need to update the back pointer to point to front
+	if newEncFront != nil {
+		batch.Put(ls.pFront(), newEncFront)
+	} else {
+		batch.Put(ls.pBack(), ls.pFront())
 	}
 
 	if err := ls.ldb.Write(batch, nil); err != nil {
 		return nil, err
 	}
 
-	// if we are popping the last item from the queue and need to update the prev pointer
-	// this update comes after the batch write in case it fails
-	if next == nil {
-		r, err := ls.root()
-		if err != nil {
-			return nil, err
-		}
-		ls._prev = r
-	}
-
 	// decode and parse originally pushed value
-	frontDecoded, err := decode(frontEncoded)
+	frontDecoded, err := decode(encFront)
 	if err != nil {
 		return nil, err
 	}
@@ -131,24 +116,28 @@ func (ls Queue) get(key []byte) ([]byte, error) {
 	return front, nil
 }
 
+// pFront encodes the pFront constant, respecting the namespace of the queue
+func (ls Queue) pFront() []byte {
+	var b bytes.Buffer
+	fmt.Fprint(&b, string(ls.ns), pFront)
+	return b.Bytes()
+}
+
+// pBack encodes the pBack constant, respecting the namespace of the queue
+func (ls Queue) pBack() []byte {
+	var b bytes.Buffer
+	fmt.Fprint(&b, string(ls.ns), pBack)
+	return b.Bytes()
+}
+
+// peek returns the encoded queueValue at the front of the queue
 func (ls Queue) peek() ([]byte, error) {
-	root, err := ls.root()
-	if err != nil {
-		return nil, err
-	}
-	return ls.get(root)
+	return ls.get(ls.pFront())
 }
 
-func (ls Queue) root() ([]byte, error) {
-	return encode(queueValue{ns: string(ls.ns), val: _root})
-}
-
-func (ls Queue) prev() ([]byte, error) {
-	// ensure that prev works for a new instance
-	if ls._prev == nil {
-		return ls.root()
-	}
-	return ls._prev, nil
+// peekBack returns the encoded queueValue at the back of the queue
+func (ls Queue) peekBack() ([]byte, error) {
+	return ls.get(ls.pBack())
 }
 
 // queueValue is a representation of a pushed queue item that can be serialized to bytes
