@@ -13,6 +13,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
+const testNamespace = "test"
+
 func TestQueueModel(t *testing.T) {
 	assert := assert.New(t)
 
@@ -24,14 +26,18 @@ func TestQueueModel(t *testing.T) {
 			db, err := leveldb.OpenFile(dir, nil)
 			assert.Nil(err)
 
-			return NewQueue([]byte("test"), db)
+			return &queueController{
+				dir:   dir,
+				ldb:   db,
+				queue: NewQueue([]byte(testNamespace), db),
+			}
 		},
 		InitialStateGen: gen.Const(makeQueueModel()),
 		InitialPreConditionFunc: func(_ commands.State) bool {
 			return true
 		},
 		GenCommandFunc: func(st commands.State) gopter.Gen {
-			return gen.OneGenOf(genPushCommand, genPopCommand(st))
+			return gen.OneGenOf(genPushCommand, genPopCommand(st), genCrashCommand)
 		},
 	}
 
@@ -40,7 +46,7 @@ func TestQueueModel(t *testing.T) {
 	properties.TestingRun(t)
 }
 
-var genPushCommand gopter.Gen = func(params *gopter.GenParameters) *gopter.GenResult {
+func genPushCommand(params *gopter.GenParameters) *gopter.GenResult {
 	return gopter.NewGenResult(
 		pushCommand{
 			x: []byte(gen.Identifier()(params).Result.(string)),
@@ -58,12 +64,19 @@ var genPopCommand = func(st commands.State) gopter.Gen {
 	}
 }
 
+func genCrashCommand(params *gopter.GenParameters) *gopter.GenResult {
+	return gopter.NewGenResult(
+		crashCommand{},
+		gopter.NoShrinker,
+	)
+}
+
 type pushCommand struct {
 	x []byte
 }
 
 func (cmd pushCommand) Run(sut commands.SystemUnderTest) commands.Result {
-	q := sut.(*Queue)
+	q := sut.(*queueController).queue
 	err := q.Push(cmd.x)
 	if err != nil {
 		return commands.Result(err)
@@ -96,7 +109,7 @@ func (cmd pushCommand) String() string {
 type popCommand struct{}
 
 func (cmd popCommand) Run(sut commands.SystemUnderTest) commands.Result {
-	q := sut.(*Queue)
+	q := sut.(*queueController).queue
 	front, err := q.Pop()
 	if err != nil {
 		return commands.Result(err)
@@ -132,7 +145,55 @@ func (cmd popCommand) String() string {
 	return "pop()"
 }
 
+type crashCommand struct{}
+
+func (cmd crashCommand) Run(sut commands.SystemUnderTest) commands.Result {
+	qc := sut.(*queueController)
+
+	// close LevelDB connection and release resources
+	qc.ldb.Close()
+
+	// create new LevelDB connection
+	db, err := leveldb.OpenFile(qc.dir, nil)
+	if err != nil {
+		return err
+	}
+
+	qc.ldb = db
+	qc.queue = NewQueue([]byte(testNamespace), db)
+
+	return nil
+}
+
+func (cmd crashCommand) NextState(state commands.State) commands.State {
+	return state
+}
+
+func (cmd crashCommand) PostCondition(_ commands.State, result commands.Result) *gopter.PropResult {
+	if e, ok := result.(error); ok {
+		return &gopter.PropResult{Error: e}
+	}
+	return gopter.NewPropResult(true, "")
+}
+
+func (cmd crashCommand) PreCondition(st commands.State) bool {
+	return true
+}
+
+func (cmd crashCommand) String() string {
+	return "crash()"
+}
+
 var (
 	_ commands.Command = pushCommand{}
 	_ commands.Command = popCommand{}
+	_ commands.Command = crashCommand{}
 )
+
+// queueController preserves the underlying reference to resources consumed by a
+// Queue to enable commands that represent restarts, filesystem failures, etc.
+type queueController struct {
+	dir   string      // root of LevelDB database
+	ldb   *leveldb.DB // current LevelDB connection
+	queue *Queue      // queue under test
+}
