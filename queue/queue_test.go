@@ -6,19 +6,19 @@ import (
 	"testing"
 
 	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/arbitrary"
+	"github.com/leanovate/gopter/gen"
+	"github.com/leanovate/gopter/prop"
 	"github.com/stretchr/testify/assert"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func TestQueueProperties(t *testing.T) {
 	parameters := gopter.DefaultTestParameters()
-	parameters.MinSize = 1
+	parameters.MinSize = 1 // ensures minimum one element generated in random slices
 
 	properties := gopter.NewProperties(parameters)
 
-	arbitraries := arbitrary.DefaultArbitraries()
-	properties.Property("first appended element is always the result of pop", arbitraries.ForAll(
+	properties.Property("first appended element is always the result of pop", prop.ForAll(
 		func(ss []string) bool {
 			dir, err := ioutil.TempDir("", "test")
 			if err != nil {
@@ -48,6 +48,7 @@ func TestQueueProperties(t *testing.T) {
 
 			return true
 		},
+		gen.SliceOf(gen.Identifier()),
 	))
 
 	properties.TestingRun(t)
