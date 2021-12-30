@@ -31,8 +31,8 @@ func NewQueue(ns []byte, ldb *leveldb.DB) *Queue {
 	}
 }
 
-// Push the value x to the back of the queue
-func (ls *Queue) Push(v []byte) error {
+// Enqueue the value x to the back of the queue
+func (ls *Queue) Enqueue(v []byte) error {
 	ls.l.Lock()
 	defer ls.l.Unlock()
 
@@ -59,8 +59,8 @@ func (ls *Queue) Push(v []byte) error {
 	return ls.ldb.Write(batch, nil)
 }
 
-// Pop and return the item at the front of the queue
-func (ls *Queue) Pop() ([]byte, error) {
+// Dequeue and return the item at the front of the queue
+func (ls *Queue) Dequeue() ([]byte, error) {
 	ls.l.Lock()
 	defer ls.l.Unlock()
 

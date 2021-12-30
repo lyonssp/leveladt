@@ -32,12 +32,12 @@ func TestQueueProperties(t *testing.T) {
 			q := NewQueue([]byte("test"), db)
 
 			for _, s := range ss {
-				if err := q.Push([]byte(s)); err != nil {
+				if err := q.Enqueue([]byte(s)); err != nil {
 					return false
 				}
 			}
 
-			front, err := q.Pop()
+			front, err := q.Dequeue()
 			if err != nil {
 				return false
 			}
@@ -66,13 +66,13 @@ func TestQueue(t *testing.T) {
 
 		q := NewQueue([]byte("test"), db)
 
-		err = q.Push([]byte("foo"))
+		err = q.Enqueue([]byte("foo"))
 		assert.Nil(err)
 
-		err = q.Push([]byte("bar"))
+		err = q.Enqueue([]byte("bar"))
 		assert.Nil(err)
 
-		got, err := q.Pop()
+		got, err := q.Dequeue()
 		assert.Nil(err)
 		assert.Equal([]byte("foo"), got)
 	})
@@ -86,17 +86,17 @@ func TestQueue(t *testing.T) {
 
 		q := NewQueue([]byte("test"), db)
 
-		err = q.Push([]byte("foo"))
+		err = q.Enqueue([]byte("foo"))
 		assert.Nil(err)
 
-		err = q.Push([]byte("foo"))
+		err = q.Enqueue([]byte("foo"))
 		assert.Nil(err)
 
-		got, err := q.Pop()
+		got, err := q.Dequeue()
 		assert.Nil(err)
 		assert.Equal([]byte("foo"), got)
 
-		got, err = q.Pop()
+		got, err = q.Dequeue()
 		assert.Nil(err)
 		assert.Equal([]byte("foo"), got)
 	})
@@ -114,17 +114,17 @@ func TestNamespacing(t *testing.T) {
 	a := NewQueue([]byte("xxx"), db)
 	b := NewQueue([]byte("yyy"), db)
 
-	err = a.Push([]byte("foo"))
+	err = a.Enqueue([]byte("foo"))
 	assert.Nil(err)
 
-	err = b.Push([]byte("bar"))
+	err = b.Enqueue([]byte("bar"))
 	assert.Nil(err)
 
-	front, err := b.Pop()
+	front, err := b.Dequeue()
 	assert.Equal([]byte("bar"), front)
 	assert.Nil(err)
 
-	front, err = a.Pop()
+	front, err = a.Dequeue()
 	assert.Equal([]byte("foo"), front)
 	assert.Nil(err)
 }
@@ -142,16 +142,16 @@ func TestRegressions(t *testing.T) {
 
 		a := NewQueue([]byte("xxx"), db)
 
-		a.Push([]byte("cz9qanCc"))
-		a.Push([]byte("wiekc00p"))
-		a.Pop()
-		a.Push([]byte("t"))
-		a.Pop()
-		a.Push([]byte("t"))
-		a.Push([]byte("h1lvfxhb"))
-		a.Pop()
+		a.Enqueue([]byte("cz9qanCc"))
+		a.Enqueue([]byte("wiekc00p"))
+		a.Dequeue()
+		a.Enqueue([]byte("t"))
+		a.Dequeue()
+		a.Enqueue([]byte("t"))
+		a.Enqueue([]byte("h1lvfxhb"))
+		a.Dequeue()
 
-		front, err := a.Pop()
+		front, err := a.Dequeue()
 		assert.Nil(err)
 		assert.Equal([]byte("t"), front)
 

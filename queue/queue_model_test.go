@@ -77,7 +77,7 @@ type pushCommand struct {
 
 func (cmd pushCommand) Run(sut commands.SystemUnderTest) commands.Result {
 	q := sut.(*queueController).queue
-	err := q.Push(cmd.x)
+	err := q.Enqueue(cmd.x)
 	if err != nil {
 		return commands.Result(err)
 	}
@@ -110,7 +110,7 @@ type popCommand struct{}
 
 func (cmd popCommand) Run(sut commands.SystemUnderTest) commands.Result {
 	q := sut.(*queueController).queue
-	front, err := q.Pop()
+	front, err := q.Dequeue()
 	if err != nil {
 		return commands.Result(err)
 	}
