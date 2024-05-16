@@ -13,7 +13,7 @@ type List struct {
 	length int
 }
 
-// Append the value x to the list
+// Append the value v to the list
 func (ls *List) Append(v []byte) error {
 	k := ls.key(int64(ls.length))
 	ls.length++
